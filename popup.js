@@ -54,39 +54,7 @@ function getCurrentTabUrl(callback) {
  * @param {function(string)} errorCallback - Called when the image is not found.
  *   The callback gets a string that describes the failure reason.
  */
-function getImageUrl(searchTerm, callback, errorCallback) {
-  // Google image search - 100 searches per day.
-  // https://developers.google.com/image-search/
-  var searchUrl = 'https://ajax.googleapis.com/ajax/services/search/images' +
-    '?v=1.0&q=' + encodeURIComponent(searchTerm);
-  var x = new XMLHttpRequest();
-  x.open('GET', searchUrl);
-  // The Google image search API responds with JSON, so let Chrome parse it.
-  x.responseType = 'json';
-  x.onload = function () {
-    // Parse and process the response from Google Image Search.
-    var response = x.response;
-    if (!response || !response.responseData || !response.responseData.results ||
-      response.responseData.results.length === 0) {
-      errorCallback('No response from Google Image search!');
-      return;
-    }
-    var firstResult = response.responseData.results[0];
-    // Take the thumbnail instead of the full image to get an approximately
-    // consistent image size.
-    var imageUrl = firstResult.tbUrl;
-    var width = parseInt(firstResult.tbWidth);
-    var height = parseInt(firstResult.tbHeight);
-    console.assert(
-      typeof imageUrl == 'string' && !isNaN(width) && !isNaN(height),
-      'Unexpected respose from the Google Image Search API!');
-    callback(imageUrl, width, height);
-  };
-  x.onerror = function () {
-    errorCallback('Network error.');
-  };
-  x.send();
-}
+
 
 function renderStatus(statusText) {
   document.getElementById('status').textContent = statusText;
@@ -95,31 +63,60 @@ function renderStatus(statusText) {
 document.addEventListener('DOMContentLoaded', function () {
   getCurrentTabUrl(function (url) {
   });
-  var txt1 = document.getElementById('messageUrl');
-  txt1.addEventListener('focus', function () {
-    chrome.tabs.getSelected(null, function (tab) {
-      txt1.value = tab.url;
+  //var txt1 = document.getElementById('messageUrl');
+  var txt2 = document.getElementById('user');
+  var button1 = document.getElementById('ignoreUser');
+  var button2 = document.getElementById('loadData');
+  //var myUrl;
+  var user;
+  
+  function getChromeStorage() {
+    chrome.storage.sync.get("myData", function (info) {
+      if (!chrome.runtime.error) {
+        console.log(info);
+        console.log("get data");
+        /*
+        chrome.tabs.getSelected(null, function (tab) {
+          txt1.value = tab.url;
+        });
+        */
+        if(info.myData !== null){
+          txt2.value = info.myData;          
+        }        
+      } else {
+        console.log("get error fail");
+      }
     });
+  }
+  getChromeStorage();
 
-  });
-
-  //chrome.storage.sync.set({'myUrl':tab.url});
-
-  var button = document.getElementById('ignoreUser');
-  button.addEventListener('click', function () {
+  //Ignore button, save url and name
+  button1.addEventListener('click', function () {
     $('#status').html('Clicked ignore button');
-    var url = $('#messageUrl').val();
-    var user = $('#user').val().toLowerCase();
-    if (!url | !user) {
+    //myUrl = $('#messageUrl').val();
+    user = $('#user').val().toLowerCase();
+    if (/*!myUrl | */!user) {
       $('#status').html('Invalid text provided');
       return;
     }
+    chrome.storage.sync.set({ "myData": user }, function () {
+      if (chrome.runtime.error) {
+        console.log("runtime error");
+      }
+    });
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      var tabUrl = tabs[0].url;
-      chrome.tabs.sendMessage(tabs[0].id, { data: { url, user, tabUrl } }, function (response) {
+      //var tabUrl = tabs[0].url;
+      //chrome.tabs.sendMessage(tabs[0].id, { data: { myUrl, user, tabUrl } }, function (response) {
+        chrome.tabs.sendMessage(tabs[0].id, { data: { user } }, function (response) {
         $('#status').html('changed data in page');
         console.log('success');
       });
     });
   });
+
+  //Load button, load url and name from chrome.storage
+  button2.addEventListener('click', function () {
+    $('#status').html('Clicked load button');
+    getChromeStorage();
+  })
 });
